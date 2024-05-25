@@ -10,7 +10,8 @@ from transformers import BitsAndBytesConfig, pipeline
 
 quantization_config = BitsAndBytesConfig(
     load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.float16
+    bnb_4bit_compute_dtype=torch.float16,
+    device='cpu'
 )
 
 model_id = "llava-hf/llava-1.5-7b-hf"
