@@ -81,7 +81,7 @@ def text_to_speech(text, file_path):
 
     return file_path
 
-!ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 10 -q:a 9 -acodec libmp3lame Temp.mp3
+#!ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 10 -q:a 9 -acodec libmp3lame Temp.mp3
 
 import streamlit as st
 
