@@ -1,16 +1,15 @@
 import torch
-from transformers import BitsAndBytesConfig, pipeline
+from transformers import pipeline
 import streamlit as st
 from gtts import gTTS
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import numpy as np
 import io
 
-# Initialize the models and configurations
-quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
+# Initialize the model
 model_id = "llava-hf/llava-1.5-7b-hf"
 device = "cpu" if not torch.cuda.is_available() else "cuda"
-pipe = pipeline("text-generation", model=model_id, model_kwargs={"quantization_config": quantization_config, "device": "cpu"})
+pipe = pipeline("text-generation", model=model_id, device=device)
 
 # Function to transcribe audio
 def transcribe(audio):
