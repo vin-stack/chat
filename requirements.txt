@@ -1,9 +1,8 @@
-streamlit
+torch
 transformers==4.37.2
 bitsandbytes==0.41.3
 accelerate==0.25.0
-git+https://github.com/openai/whisper.git
-gtts==2.2.3
-torch
-nltk
-pillow
+streamlit
+gtts
+streamlit-webrtc
+numpy
