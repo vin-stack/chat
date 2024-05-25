@@ -1,114 +1,76 @@
-# -*- coding: utf-8 -*-
-
-#!pip install -q -U transformers==4.37.2
-#!pip install -q bitsandbytes==0.41.3 accelerate==0.25.0
-#!pip install -q git+https://github.com/openai/whisper.git
-#!pip install -q gTTS
-
 import torch
 from transformers import BitsAndBytesConfig, pipeline
-
-
-
-model_id = "llava-hf/llava-1.5-7b-hf"
-
-pipe = pipeline("image-to-text", model=model_id)
-
 import whisper
-import warnings
+import streamlit as st
 from gtts import gTTS
-
-import locale
-print(locale.getlocale())  # Before running the pipeline
-# Run the pipeline
-print(locale.getlocale())  # After running the pipeline
-
-import nltk
-nltk.download('punkt')
-from nltk import sent_tokenize
-
-import datetime
-
-warnings.filterwarnings("ignore")
-
+import os
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 import numpy as np
 
-torch.cuda.is_available()
+# Initialize the models and configurations
+quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
+model_id = "llava-hf/llava-1.5-7b-hf"
+pipe = pipeline("text-generation", model=model_id, model_kwargs={"quantization_config": quantization_config})
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using torch {torch.__version__} ({DEVICE})")
-
-import whisper
 model = whisper.load_model("medium", device=DEVICE)
-print(
-    f"Model is {'multilingual' if model.is_multilingual else 'English-only'} "
-    f"and has {sum(np.prod(p.shape) for p in model.parameters()):,} parameters."
-)
 
-import re
-
+# Function to transcribe audio
 def transcribe(audio):
+    try:
+        if audio is None:
+            raise ValueError("No audio input provided.")
+        
+        audio = whisper.pad_or_trim(audio)
+        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+        options = whisper.DecodingOptions()
+        result = whisper.decode(model, mel, options)
+        return result.text
+    except Exception as e:
+        return str(e)
 
-    # Check if the audio input is None or empty
-    if audio is None or audio == '':
-        return ('','',None)  # Return empty strings and None audio file
-
-    audio = whisper.load_audio(audio)
-    audio = whisper.pad_or_trim(audio)
-
-    mel = whisper.log_mel_spectrogram(audio).to(model.device)
-
-    _, probs = model.detect_language(mel)
-
-    options = whisper.DecodingOptions()
-    result = whisper.decode(model, mel, options)
-    result_text = result.text
-
-    return result_text
-
+# Function to convert text to speech
 def text_to_speech(text, file_path):
-    language = 'en'
+    try:
+        audioobj = gTTS(text=text, lang='en', slow=False)
+        audioobj.save(file_path)
+        return file_path
+    except Exception as e:
+        return str(e)
 
-    audioobj = gTTS(text=text,
-                    lang=language,
-                    slow=False)
+# Streamlit interface
+st.title("Learn OpenAI Whisper: Voice processing with Whisper and Llava")
+st.write("Record your voice and receive audio response.")
 
-    audioobj.save(file_path)
+class AudioRecorder(VideoTransformerBase):
+    def __init__(self):
+        self.sampling_rate = 44100
+        self.sample_width = 2
+        self.channels = 1
+        self.duration = 10
+        self.audio = np.array([], dtype=np.int16)
 
-    return file_path
+    def transform(self, frame):
+        self.audio = np.append(self.audio, np.frombuffer(frame.to_ndarray(format="wav"), dtype=np.int16))
+        if len(self.audio) >= self.sampling_rate * self.duration:
+            st.stop()
+        return frame
 
-#!ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 10 -q:a 9 -acodec libmp3lame Temp.mp3
+webrtc_ctx = webrtc_streamer(key="audio-recorder", video_transformer_factory=AudioRecorder)
 
-import streamlit as st
+if webrtc_ctx.state.playing:
+    st.text("Recording...")
 
-def process_audio(audio_path):
-    # Process the audio file
-    speech_to_text_output = transcribe(audio_path)
-    
-    # Assuming you want the assistant to repeat what was said
-    assistant_output = speech_to_text_output
-    
-    # Convert the assistant output to speech
-    processed_audio_path = text_to_speech(assistant_output, "Temp3.mp3")
+if webrtc_ctx.state == "stopped":
+    audio = whisper.load_audio(io.BytesIO(self.audio.tobytes()), sample_rate=self.sampling_rate)
+    transcription = transcribe(audio)
+    st.text(f"Transcription: {transcription}")
 
-    return speech_to_text_output, assistant_output, processed_audio_path
+    prompt = f"{transcription}\nASSISTANT:"
+    outputs = pipe(prompt, max_new_tokens=200)
+    raw_output = outputs[0]["generated_text"].strip()
+    assistant_response = raw_output.replace("USER:", "").replace("ASSISTANT:", "").strip()
+    st.text(f"ChatGPT Output: {assistant_response}")
 
-# Streamlit UI
-st.title("Voice Assistant")
-
-audio_file = st.file_uploader("Upload your audio file", type=["wav", "mp3"])
-
-if audio_file:
-    st.audio(audio_file, format='audio/wav')
-
-    # Process the audio file
-    speech_to_text_output, assistant_output, processed_audio_path = process_audio(audio_file)
-
-    st.write("Speech to Text Output:")
-    st.write(speech_to_text_output)
-
-    st.write("Assistant Output:")
-    st.write(assistant_output)
-
-    st.write("Assistant Response Audio:")
-    st.audio(processed_audio_path, format='audio/mp3')
-
+    audio_response_path = text_to_speech(assistant_response, "response.mp3")
+    st.audio(audio_response_path)
