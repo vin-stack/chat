@@ -9,7 +9,7 @@ import io
 # Initialize the models and configurations
 quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
 model_id = "llava-hf/llava-1.5-7b-hf"
-pipe = pipeline("text-generation", model=model_id, model_kwargs={"quantization_config": quantization_config.to("cpu")})
+pipe = pipeline("text-generation", model=model_id, model_kwargs={"quantization_config": quantization_config})
 
 # Function to transcribe audio
 def transcribe(audio):
