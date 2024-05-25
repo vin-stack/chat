@@ -3,8 +3,7 @@
 #!pip install -q -U transformers==4.37.2
 #!pip install -q bitsandbytes==0.41.3 accelerate==0.25.0
 #!pip install -q git+https://github.com/openai/whisper.git
-#
-!pip install -q gTTS
+#!pip install -q gTTS
 
 import torch
 from transformers import BitsAndBytesConfig, pipeline
