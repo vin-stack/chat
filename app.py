@@ -10,7 +10,7 @@ import io
 quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
 model_id = "llava-hf/llava-1.5-7b-hf"
 device = "cpu" if not torch.cuda.is_available() else "cuda"
-pipe = pipeline("text-generation", model=model_id, model_kwargs={"quantization_config": quantization_config, "device": cpu})
+pipe = pipeline("text-generation", model=model_id, model_kwargs={"quantization_config": quantization_config, "device": "cpu"})
 
 # Function to transcribe audio
 def transcribe(audio):
